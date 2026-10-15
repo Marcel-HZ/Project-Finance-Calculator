@@ -1,10 +1,18 @@
-"""模式 1：基础复利  F = P × (1 + i)^n"""
+"""模式 1：基础复利 / 单利
+
+复利：F = P × (1 + i)^n
+单利：F = P × (1 + i × n)
+"""
 import math
 from utils import get_value
 
 
-def solve_i(F, P, n):
-    """解 i，方程为 (1+i)^n = F/P，正确处理偶次方的双根"""
+# ============================================================
+#  复利
+# ============================================================
+
+def solve_i_compound(F, P, n):
+    """复利解 i，方程为 (1+i)^n = F/P，正确处理偶次方的双根"""
     if P == 0:
         return "无法计算 i：因为 P = 0，不能做分母。"
 
@@ -49,8 +57,8 @@ def solve_i(F, P, n):
     return "\n".join(lines)
 
 
-def solve_basic(F, P, i, n):
-    """基础模式求解，返回 (结果字符串, 是否成功)"""
+def solve_compound(F, P, i, n):
+    """复利模式求解，返回 (结果字符串, 是否成功)"""
     unknowns = [name for name, val in
                 [("F", F), ("P", P), ("i", i), ("n", n)] if val is None]
 
@@ -75,7 +83,7 @@ def solve_basic(F, P, i, n):
                     f"= {result:.6f}", True)
 
         elif target == "i":
-            return solve_i(F, P, n), True
+            return solve_i_compound(F, P, n), True
 
         elif target == "n":
             if P == 0:
@@ -92,14 +100,98 @@ def solve_basic(F, P, i, n):
         return f"计算过程中出现错误：{e}", False
 
 
+# ============================================================
+#  单利
+# ============================================================
+
+def solve_simple(F, P, i, n):
+    """
+    单利模式求解：F = P × (1 + i × n)
+    四种变形：
+        F = P(1 + i·n)
+        P = F / (1 + i·n)
+        i = (F/P - 1) / n
+        n = (F/P - 1) / i
+    单利没有双根问题，只有一个解。
+    """
+    unknowns = [name for name, val in
+                [("F", F), ("P", P), ("i", i), ("n", n)] if val is None]
+
+    if len(unknowns) == 0:
+        return "所有变量均已知，无需计算。", True
+    if len(unknowns) > 1:
+        return f"未知变量过多（{', '.join(unknowns)}），无法计算。", False
+
+    target = unknowns[0]
+
+    try:
+        if target == "F":
+            result = P * (1 + i * n)
+            return (f"F = P × (1 + i × n) = {P} × (1 + {i}×{n}) "
+                    f"= {result:.6f}", True)
+
+        elif target == "P":
+            denom = 1 + i * n
+            if denom == 0:
+                return "无法计算 P：因为 1 + i×n = 0，不能做分母。", False
+            result = F / denom
+            return (f"P = F / (1 + i × n) = {F} / (1 + {i}×{n}) "
+                    f"= {result:.6f}", True)
+
+        elif target == "i":
+            if n == 0:
+                return "无法计算 i：因为 n = 0，不能做分母。", False
+            result = (F / P - 1) / n
+            return (f"i = (F/P - 1) / n = ({F}/{P} - 1) / {n} "
+                    f"= {result:.6f}  （即 {result*100:.4f}%）", True)
+
+        elif target == "n":
+            if i == 0:
+                return "无法计算 n：因为 i = 0，不能做分母。", False
+            result = (F / P - 1) / i
+            return (f"n = (F/P - 1) / i = ({F}/{P} - 1) / {i} "
+                    f"= {result:.6f}", True)
+
+    except Exception as e:
+        return f"计算过程中出现错误：{e}", False
+
+
+# ============================================================
+#  交互式运行
+# ============================================================
+
 def run():
-    """交互式运行基础模式"""
-    print("基础复利模式：F = P × (1 + i)^n")
+    """交互式运行基础模式（单利/复利二选一）"""
+    print("基础模式")
+    print("请选择计算方式：")
+    print("  1 - 复利：F = P × (1 + i)^n")
+    print("  2 - 单利：F = P × (1 + i × n)")
+    while True:
+        way = input("请输入 1 或 2：").strip()
+        if way in ("1", "2"):
+            break
+        print("输入无效，请输入 1 或 2。")
+
+    print()
+    if way == "1":
+        print("复利模式：F = P × (1 + i)^n")
+    else:
+        print("单利模式：F = P × (1 + i × n)")
+    print()
+
     F = get_value("F", "终值/未来值")
     P = get_value("P", "现值/本金")
     i = get_value("i", "每期利率，可输入 0.05 或 5%", is_rate=True)
     n = get_value("n", "期数")
+
     print("\n" + "-" * 60)
-    result, _ = solve_basic(F, P, i, n)
+    if way == "1":
+        result, _ = solve_compound(F, P, i, n)
+    else:
+        result, _ = solve_simple(F, P, i, n)
     print(result)
     print("-" * 60)
+
+
+if __name__ == "__main__":
+    run()
