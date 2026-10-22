@@ -1,4 +1,4 @@
-"""模式 6：投资项目评价（NPV、IRR、MIRR、PI、回收期、AAR、XNPV）"""
+"""模式 7：投资项目评价（AAR、回收期、NPV、IRR、MIRR、PI、XNPV）"""
 import math
 from utils import get_value, get_float, get_rate, get_cashflows, get_dates
 
@@ -30,9 +30,15 @@ def get_full_cashflows(prompt="请输入完整现金流序列（第 0 期起，�
 # ============================================================
 
 def calc_aar(net_profits, initial_investment):
-    """平均收益率 AAR = 年平均净利润 / 初始投资额"""
+    """
+    平均收益率 AAR = 年平均净利润 / 初始投资额
+    - net_profits: 各年净利润列表
+    - initial_investment: 初始投资额（正数）
+    """
     if initial_investment == 0:
         return None, "初始投资为 0，无法计算 AAR。"
+    if len(net_profits) == 0:
+        return None, "净利润序列为空。"
     avg = sum(net_profits) / len(net_profits)
     return avg / abs(initial_investment), None
 
@@ -208,7 +214,7 @@ def run():
     """交互式运行投资项目评价模式"""
     print("投资项目评价模式")
     print("请选择要计算的指标：")
-    print("  1  - 平均收益率 AAR")
+    print("  1  - 平均收益率 AAR（用净利润）")
     print("  2  - 回收期")
     print("  3  - 贴现回收期")
     print("  4  - 净现值 NPV")
@@ -227,11 +233,15 @@ def run():
 
     print()
 
-    # ---------- 选项 1：AAR ----------
+    # ---------- 选项 1：AAR（用净利润） ----------
     if sub == "1":
         raw = input("请输入各年净利润（逗号分隔）：").strip()
         parts = [p.strip() for p in raw.replace("，", ",").split(",") if p.strip()]
-        profits = [float(p) for p in parts]
+        try:
+            profits = [float(p) for p in parts]
+        except ValueError:
+            print("输入无效，请用逗号分隔数字。")
+            return
         init = get_float("请输入初始投资额：")
         aar, err = calc_aar(profits, init)
         print("\n" + "-" * 60)
@@ -292,26 +302,45 @@ def run():
         )
         print()
         print("以下利率若未知，可直接回车或输入“未知”：")
-        r = get_value(
-            "必要收益率", "用于贴现回收期、NPV、PI", is_rate=True
-        )
-        reinvest_rate = get_value(
-            "再投资收益率", "用于 MIRR", is_rate=True
-        )
-        finance_rate = get_value(
-            "融资成本率", "用于 MIRR", is_rate=True
-        )
+        r = get_value("必要收益率", "用于贴现回收期、NPV、PI", is_rate=True)
+        reinvest_rate = get_value("再投资收益率", "用于 MIRR", is_rate=True)
+        finance_rate = get_value("融资成本率", "用于 MIRR", is_rate=True)
+
+        print()
+        print("AAR 需要净利润数据（与现金流不同）：")
+        raw_profit = input("请输入各年净利润（逗号分隔，若未知直接回车跳过）：").strip()
+        profits = None
+        if raw_profit:
+            parts = [p.strip() for p in raw_profit.replace("，", ",").split(",") if p.strip()]
+            try:
+                profits = [float(p) for p in parts]
+            except ValueError:
+                print("净利润输入无效，将跳过 AAR。")
+                profits = None
 
         print("\n" + "-" * 60)
 
-        # 回收期（只需现金流）
+        # AAR
+        if profits is not None:
+            aar, err = calc_aar(profits, abs(cf0))
+            if err:
+                print(f"AAR：{err}")
+            else:
+                avg = sum(profits) / len(profits)
+                print(f"AAR = {avg:.6f} / {abs(cf0):.6f} = {aar:.6f}  "
+                      f"（即 {aar*100:.4f}%）")
+        else:
+            print("AAR：跳过（缺少净利润数据）")
+
+        # 回收期
+        print()
         pb, err = calc_payback(full)
         if err:
             print(f"回收期：{err}")
         else:
             print(f"回收期 = {pb:.6f} 年")
 
-        # 贴现回收期（需要 r）
+        # 贴现回收期
         if r is not None:
             dpb, err = calc_discounted_payback(full, r)
             if err:
@@ -321,7 +350,7 @@ def run():
         else:
             print("贴现回收期：跳过（缺少必要收益率 r）")
 
-        # NPV、PI（需要 r）
+        # NPV、PI
         if r is not None:
             npv, pv_future = calc_npv(full, r)
             print(f"现金流入现值 PV = {pv_future:.6f}")
@@ -338,7 +367,7 @@ def run():
             print("NPV：跳过（缺少必要收益率 r）")
             print("PI：跳过（缺少必要收益率 r）")
 
-        # IRR（只需现金流）
+        # IRR
         print()
         irr, diag, err = calc_irr_with_diagnosis(full)
         print(diag)
@@ -347,7 +376,7 @@ def run():
         else:
             print(f"IRR = {irr:.6f}  （即 {irr*100:.4f}%）")
 
-        # MIRR（需要再投资率和融资率）
+        # MIRR
         print()
         if reinvest_rate is not None and finance_rate is not None:
             mirr, fv_pos, pv_neg, err = calc_mirr(

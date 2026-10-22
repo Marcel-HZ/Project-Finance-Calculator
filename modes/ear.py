@@ -110,7 +110,13 @@ def solve_ear_mode(F, P, R, M, EAR, t):
         if not progress:
             break
 
-    remaining = [k for k, v in values.items() if v is None]
+    # ---------- 检查结果 ----------
+    # 关键修复：如果 EAR 已知，R 和 M 为 None 是正常的
+    if values["EAR"] is not None:
+        remaining = [k for k, v in values.items()
+                     if v is None and k not in ("R", "M")]
+    else:
+        remaining = [k for k, v in values.items() if v is None]
 
     if remaining:
         msg = f"未知变量过多（{', '.join(remaining)}），无法计算。"
@@ -121,6 +127,8 @@ def solve_ear_mode(F, P, R, M, EAR, t):
     output = "求解过程：\n" + "\n".join(f"  {s}" for s in steps)
     output += "\n\n最终结果：\n"
     for k, v in values.items():
+        if v is None:
+            continue
         if k in ("R", "EAR"):
             output += f"  {k:4s} = {v:.6f}  （即 {v*100:.4f}%）\n"
         else:
@@ -148,3 +156,7 @@ def run():
     result, _ = solve_ear_mode(F, P, R, M, EAR, t)
     print(result)
     print("-" * 60)
+
+
+if __name__ == "__main__":
+    run()

@@ -90,6 +90,17 @@ def calc_coupon_yield(coupon, face_value):
     return coupon / face_value
 
 
+def calc_expected_ytm(ytm_promise, ytm_default, prob_promise, prob_default):
+    """
+    期望 YTM = 承诺 YTM × 承诺概率 + 违约 YTM × 违约概率
+    返回 (期望YTM, 错误信息)
+    """
+    total = prob_promise + prob_default
+    if abs(total - 1.0) > 1e-6:
+        return None, f"概率之和必须为 1（当前为 {total}）。"
+    return prob_promise * ytm_promise + prob_default * ytm_default, None
+
+
 def calc_amortized_cost(face_value, coupon, n, initial_cost, effective_rate):
     """摊余成本表"""
     n = int(n)
@@ -451,14 +462,15 @@ def run():
         ytm_default = get_rate("违约情形下的 YTM（如 -20% 或 -0.20）：")
         prob_default = get_float("违约情形的概率（如 0.05）：")
 
-        total = prob_promise + prob_default
-        if abs(total - 1.0) > 1e-6:
+        exp_ytm, err = calc_expected_ytm(
+            ytm_promise, ytm_default, prob_promise, prob_default
+        )
+        if err:
             print("\n" + "-" * 60)
-            print(f"概率之和必须为 1（当前为 {total}）。")
+            print(err)
             print("-" * 60)
             return
 
-        exp_ytm = prob_promise * ytm_promise + prob_default * ytm_default
         print("\n" + "-" * 60)
         print(f"期望 YTM = {prob_promise} × {ytm_promise} + "
               f"{prob_default} × {ytm_default}")

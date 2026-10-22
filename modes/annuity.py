@@ -185,9 +185,11 @@ def solve_annuity_mode(mode, A, i, n, F, P):
                     )
                     progress = True
                 else:
-                    steps.append(f"i 求解失败：{err}")
-                    values["i"] = float("nan")
-                    progress = True
+                    # 关键修复：直接返回错误，不输出 nan
+                    msg = f"无法计算 i：{err}"
+                    if steps:
+                        msg += "\n\n已完成的步骤：\n" + "\n".join(f"  {s}" for s in steps)
+                    return msg, False
 
         if not progress:
             break
@@ -245,3 +247,7 @@ def run():
     result, _ = solve_annuity_mode(mode_str, A, i, n, F, P)
     print(result)
     print("-" * 60)
+
+
+if __name__ == "__main__":
+    run()
