@@ -84,3 +84,16 @@ def get_dates(prompt):
             return [datetime.strptime(p, "%Y-%m-%d") for p in parts]
         except ValueError:
             print("输入无效，请用逗号分隔日期，格式 YYYY-MM-DD，例如：2024-01-01, 2024-07-01")
+
+def get_int(prompt):
+    """读取一个正整数"""
+    while True:
+        raw = input(prompt).strip()
+        try:
+            val = int(raw)
+            if val <= 0:
+                print("请输入正整数。")
+                continue
+            return val
+        except ValueError:
+            print("输入无效，请输入一个正整数。")

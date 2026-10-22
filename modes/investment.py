@@ -1,6 +1,6 @@
-"""模式 5：投资项目评价（NPV、IRR、MIRR、PI、回收期、AAR、XNPV）"""
+"""模式 6：投资项目评价（NPV、IRR、MIRR、PI、回收期、AAR、XNPV）"""
 import math
-from utils import get_float, get_rate, get_cashflows, get_dates
+from utils import get_value, get_float, get_rate, get_cashflows, get_dates
 
 
 # ============================================================
@@ -8,10 +8,7 @@ from utils import get_float, get_rate, get_cashflows, get_dates
 # ============================================================
 
 def get_full_cashflows(prompt="请输入完整现金流序列（第 0 期起，逗号分隔）："):
-    """
-    读取完整现金流序列，第 0 期作为初始投资。
-    返回 (full, cf0, future)
-    """
+    """读取完整现金流序列，返回 (full, cf0, future)"""
     while True:
         raw = input(prompt).strip()
         parts = [p.strip() for p in raw.replace("，", ",").split(",") if p.strip()]
@@ -85,7 +82,6 @@ def calc_pi(full_cashflows, r):
     cf0 = full_cashflows[0]
     if cf0 == 0:
         return None, None, "第 0 期现金流为 0，无法计算 PI。"
-
     npv, pv_future = calc_npv(full_cashflows, r)
     return npv / abs(cf0), pv_future / abs(cf0), None
 
@@ -162,11 +158,7 @@ def calc_irr_with_diagnosis(full_cashflows):
 
 
 def calc_mirr(full_cashflows, reinvest_rate, finance_rate):
-    """
-    修正内部收益率 MIRR。
-    full_cashflows: 完整序列，含第 0 期。
-    MIRR = (FV_positive / |PV_negative|)^(1/n) - 1
-    """
+    """修正内部收益率 MIRR"""
     n = len(full_cashflows) - 1
     if n <= 0:
         return None, 0, 0, "现金流序列长度不足，无法计算 MIRR。"
@@ -175,7 +167,6 @@ def calc_mirr(full_cashflows, reinvest_rate, finance_rate):
         cf * (1 + reinvest_rate) ** (n - t)
         for t, cf in enumerate(full_cashflows) if cf > 0
     )
-
     pv_negative = sum(
         cf / (1 + finance_rate) ** t
         for t, cf in enumerate(full_cashflows) if cf < 0
@@ -294,84 +285,142 @@ def run():
         print("-" * 60)
         return
 
-    # ---------- 其余选项 ----------
-    full, cf0, _ = get_full_cashflows(
-        "请输入完整现金流序列（第 0 期起，逗号分隔）："
-    )
-
-    r = None
-    if sub in ("3", "4", "5", "6", "9"):
-        r = get_rate("请输入必要收益率 / 资本成本率（如 7.5% 或 0.075）：")
-
-    reinvest_rate = None
-    finance_rate = None
+    # ---------- 选项 9：全部指标（支持未知） ----------
     if sub == "9":
-        reinvest_rate = get_rate("请输入再投资收益率（如 10% 或 0.10）：")
-        finance_rate = get_rate("请输入融资成本率（如 8% 或 0.08）：")
+        full, cf0, _ = get_full_cashflows(
+            "请输入完整现金流序列（第 0 期起，逗号分隔）："
+        )
+        print()
+        print("以下利率若未知，可直接回车或输入“未知”：")
+        r = get_value(
+            "必要收益率", "用于贴现回收期、NPV、PI", is_rate=True
+        )
+        reinvest_rate = get_value(
+            "再投资收益率", "用于 MIRR", is_rate=True
+        )
+        finance_rate = get_value(
+            "融资成本率", "用于 MIRR", is_rate=True
+        )
 
-    print("\n" + "-" * 60)
+        print("\n" + "-" * 60)
 
-    # 回收期
-    if sub in ("2", "9"):
+        # 回收期（只需现金流）
         pb, err = calc_payback(full)
         if err:
             print(f"回收期：{err}")
         else:
             print(f"回收期 = {pb:.6f} 年")
 
-    # 贴现回收期
-    if sub in ("3", "9"):
-        dpb, err = calc_discounted_payback(full, r)
-        if err:
-            print(f"贴现回收期：{err}")
+        # 贴现回收期（需要 r）
+        if r is not None:
+            dpb, err = calc_discounted_payback(full, r)
+            if err:
+                print(f"贴现回收期：{err}")
+            else:
+                print(f"贴现回收期 = {dpb:.6f} 年")
         else:
-            print(f"贴现回收期 = {dpb:.6f} 年")
+            print("贴现回收期：跳过（缺少必要收益率 r）")
 
-    # NPV、PI
-    if sub in ("4", "5", "6", "9"):
-        npv, pv_future = calc_npv(full, r)
-        print(f"现金流入现值 PV = {pv_future:.6f}")
-        print(f"初始投资 |CF0| = {abs(cf0):.6f}")
-        print(f"NPV = PV - |CF0| = {npv:.6f}")
+        # NPV、PI（需要 r）
+        if r is not None:
+            npv, pv_future = calc_npv(full, r)
+            print(f"现金流入现值 PV = {pv_future:.6f}")
+            print(f"初始投资 |CF0| = {abs(cf0):.6f}")
+            print(f"NPV = PV - |CF0| = {npv:.6f}")
 
-        if sub in ("5", "9"):
             pi_npv, pi_pv, err = calc_pi(full, r)
             if err:
                 print(f"PI：{err}")
             else:
                 print(f"盈利指数 PI = NPV / |CF0| = {pi_npv:.6f}")
-
-        if sub in ("6", "9"):
-            pi_npv, pi_pv, err = calc_pi(full, r)
-            if err:
-                print(f"PI：{err}")
-            else:
                 print(f"现值指数 PI = PV / |CF0| = {pi_pv:.6f}")
+        else:
+            print("NPV：跳过（缺少必要收益率 r）")
+            print("PI：跳过（缺少必要收益率 r）")
 
-    # IRR（含诊断）
-    if sub in ("8", "9"):
-        irr, diag, err = calc_irr_with_diagnosis(full)
+        # IRR（只需现金流）
         print()
+        irr, diag, err = calc_irr_with_diagnosis(full)
         print(diag)
         if err:
             print(f"IRR 求解失败：{err}")
         else:
             print(f"IRR = {irr:.6f}  （即 {irr*100:.4f}%）")
 
-    # MIRR（选项 9 时一并计算）
-    if sub == "9":
-        mirr, fv_pos, pv_neg, err = calc_mirr(
-            full, reinvest_rate, finance_rate
-        )
+        # MIRR（需要再投资率和融资率）
         print()
-        if err:
-            print(f"MIRR：{err}")
+        if reinvest_rate is not None and finance_rate is not None:
+            mirr, fv_pos, pv_neg, err = calc_mirr(
+                full, reinvest_rate, finance_rate
+            )
+            if err:
+                print(f"MIRR：{err}")
+            else:
+                print(f"再投资收益率 = {reinvest_rate:.6f}  "
+                      f"（即 {reinvest_rate*100:.4f}%）")
+                print(f"融资成本率   = {finance_rate:.6f}  "
+                      f"（即 {finance_rate*100:.4f}%）")
+                print(f"正现金流终值 FV = {fv_pos:.6f}")
+                print(f"负现金流现值 PV = {pv_neg:.6f}")
+                print(f"MIRR = {mirr:.6f}  （即 {mirr*100:.4f}%）")
         else:
-            print(f"再投资收益率 = {reinvest_rate:.6f}  （即 {reinvest_rate*100:.4f}%）")
-            print(f"融资成本率   = {finance_rate:.6f}  （即 {finance_rate*100:.4f}%）")
-            print(f"正现金流终值 FV = {fv_pos:.6f}")
-            print(f"负现金流现值 PV = {pv_neg:.6f}")
-            print(f"MIRR = {mirr:.6f}  （即 {mirr*100:.4f}%）")
+            print("MIRR：跳过（缺少再投资收益率或融资成本率）")
+
+        print("-" * 60)
+        return
+
+    # ---------- 其余选项（单项指标） ----------
+    full, cf0, _ = get_full_cashflows(
+        "请输入完整现金流序列（第 0 期起，逗号分隔）："
+    )
+
+    r = None
+    if sub in ("3", "4", "5", "6"):
+        r = get_rate("请输入必要收益率 / 资本成本率（如 7.5% 或 0.075）：")
+
+    print("\n" + "-" * 60)
+
+    if sub == "2":
+        pb, err = calc_payback(full)
+        if err:
+            print(f"回收期：{err}")
+        else:
+            print(f"回收期 = {pb:.6f} 年")
+
+    elif sub == "3":
+        dpb, err = calc_discounted_payback(full, r)
+        if err:
+            print(f"贴现回收期：{err}")
+        else:
+            print(f"贴现回收期 = {dpb:.6f} 年")
+
+    elif sub == "4":
+        npv, pv_future = calc_npv(full, r)
+        print(f"现金流入现值 PV = {pv_future:.6f}")
+        print(f"初始投资 |CF0| = {abs(cf0):.6f}")
+        print(f"NPV = PV - |CF0| = {npv:.6f}")
+
+    elif sub == "5":
+        pi_npv, pi_pv, err = calc_pi(full, r)
+        if err:
+            print(f"PI：{err}")
+        else:
+            print(f"盈利指数 PI = NPV / |CF0| = {pi_npv:.6f}")
+
+    elif sub == "6":
+        pi_npv, pi_pv, err = calc_pi(full, r)
+        if err:
+            print(f"PI：{err}")
+        else:
+            print(f"现值指数 PI = PV / |CF0| = {pi_pv:.6f}")
+
+    elif sub == "8":
+        irr, diag, err = calc_irr_with_diagnosis(full)
+        print(diag)
+        if err:
+            print(f"IRR 求解失败：{err}")
+        else:
+            print(f"IRR = {irr:.6f}  （即 {irr*100:.4f}%）")
 
     print("-" * 60)
 
